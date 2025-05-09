@@ -1,0 +1,105 @@
+version: '3.8'
+
+services:
+  web:
+    image: odoo:17.0
+    user: root  # Temporarily use root to ensure proper initialization
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "8069:8069"
+    volumes:
+      - odoo-web-data:/var/lib/odoo
+      - odoo-config:/etc/odoo
+      - ./addons:/mnt/extra-addons
+    environment:
+      - HOST=db
+      - PORT=5432
+      - USER=odoo
+      - PASSWORD=ciE2#tYj1f
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DB_USER=odoo
+      - DB_PASSWORD=ciE2#tYj1f
+      - CREATE_DATABASE=true
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8069/web/database/selector"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 6G
+        reservations:
+          memory: 2G
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  db:
+    image: postgres:15-alpine
+    user: postgres  # Use postgres user for database operations
+    environment:
+      - POSTGRES_DB=postgres
+      - POSTGRES_PASSWORD=ciE2#tYj1f
+      - POSTGRES_USER=odoo
+      - PGDATA=/var/lib/postgresql/data/pgdata
+    volumes:
+      - odoo-db-data:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U odoo -d postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 4G
+        reservations:
+          memory: 1G
+    command:
+      - "postgres"
+      - "-c"
+      - "max_connections=200"
+      - "-c"
+      - "shared_buffers=1GB"
+      - "-c"
+      - "effective_cache_size=3GB"
+      - "-c"
+      - "work_mem=32MB"
+      - "-c"
+      - "maintenance_work_mem=256MB"
+      - "-c"
+      - "random_page_cost=1.1"
+      - "-c"
+      - "temp_file_limit=10GB"
+      - "-c"
+      - "log_min_duration_statement=200ms"
+      - "-c"
+      - "idle_in_transaction_session_timeout=10000"
+      - "-c"
+      - "lock_timeout=1000"
+      - "-c"
+      - "statement_timeout=60000"
+
+volumes:
+  odoo-web-data:
+    driver: local
+  odoo-config:
+    driver: local
+  odoo-db-data:
+    driver: local
+
+networks:
+  default:
+    driver: bridge

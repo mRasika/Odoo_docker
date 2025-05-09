@@ -1,0 +1,18 @@
+# Odoo data
+addons/*
+!addons/.gitkeep
+
+# Environment specific
+.env
+
+# Docker volumes
+odoo-web-data/
+odoo-db-data/
+odoo-config/
+
+# System Files
+.DS_Store
+.idea/
+*.log
+*.pyc
+__pycache__/
