@@ -1,0 +1,6 @@
+# Python dependencies for Odoo
+qifparse
+# Add other dependencies below as needed
+# pandas
+# numpy
+# xlrd

@@ -2,7 +2,7 @@ version: "3.9"
 
 services:
   odoo:
-    image: "odoo:18.0"
+    build: .  # This will use our local Dockerfile
     container_name: "odoo_app"
     depends_on:
       db: 
@@ -11,25 +11,16 @@ services:
       - "8069:8069"
     volumes:
       - "odoo-data:/var/lib/odoo"
-      # Uncomment and adjust the path to mount your custom addons
-      # - ./addons:/mnt/extra-addons
-      # Uncomment and adjust the path to mount your custom odoo.conf
-      # - ./config/odoo.conf:/etc/odoo/odoo.conf
+      - ./addons:/mnt/extra-addons
     environment:
       - "HOST=db"
       - "USER=odoo"
       - "PASSWORD_FILE=/run/secrets/postgresql_password"
-      # Optional: Set a master password for Odoo, consider using a secret for this as well
-      # - ADMIN_PASSWORD=my_admin_password 
-      # Or via a secret file:
-      # - ADMIN_PASSWORD_FILE=/run/secrets/odoo_admin_password
     secrets:
       - "postgresql_password"
-      # - odoo_admin_password # Uncomment if using ADMIN_PASSWORD_FILE
     networks:
       - "odoo-net"
     restart: "unless-stopped"
-    # Add healthcheck for Odoo if needed, though depends_on condition for db is primary
 
   db:
     image: "postgres:16"
@@ -38,8 +29,6 @@ services:
       - "POSTGRES_DB=postgres"
       - "POSTGRES_USER=odoo"
       - "POSTGRES_PASSWORD_FILE=/run/secrets/postgresql_password"
-      # PGDATA can be set if you need to change the default data directory inside the container
-      # - PGDATA=/var/lib/postgresql/data/pgdata 
     volumes:
       - "db-data:/var/lib/postgresql/data"
     secrets:
@@ -60,8 +49,6 @@ volumes:
 secrets:
   postgresql_password:
     file: "./secrets/postgresql_password.txt"
-  # odoo_admin_password: # Uncomment if using ADMIN_PASSWORD_FILE
-  #   file: ./secrets/odoo_admin_password.txt # Uncomment if using ADMIN_PASSWORD_FILE
 
 networks:
   odoo-net:

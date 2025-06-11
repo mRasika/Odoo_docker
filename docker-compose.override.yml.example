@@ -1,0 +1,30 @@
+version: "3.9"
+
+services:
+  odoo:
+    environment:
+      # Add custom environment variables
+      - LANG=en_US.UTF-8
+      # - ADMIN_PASSWORD=your_admin_password
+    volumes:
+      # Add custom volume mappings
+      # - ./custom_addons:/mnt/custom-addons
+      # - ./config/odoo.conf:/etc/odoo/odoo.conf
+
+  db:
+    environment:
+      # Add custom PostgreSQL configurations
+      - POSTGRES_INITDB_ARGS=--data-checksums
+    volumes:
+      # Add custom PostgreSQL configurations
+      # - ./postgresql.conf:/etc/postgresql/postgresql.conf
+
+# Add additional services if needed
+#  nginx:
+#    image: nginx:alpine
+#    ports:
+#      - "80:80"
+#    volumes:
+#      - ./nginx/nginx.conf:/etc/nginx/nginx.conf
+#    depends_on:
+#      - odoo
