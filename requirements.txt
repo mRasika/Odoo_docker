@@ -4,3 +4,9 @@ qifparse
 # pandas
 # numpy
 # xlrd
+# Below dependencies for Auto database Backup Module
+dropbox
+pyncclient
+nextcloud-api-wrapper
+boto3
+paramiko
