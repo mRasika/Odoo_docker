@@ -1,0 +1,12 @@
+# Python dependencies for Odoo
+qifparse
+# Add other dependencies below as needed
+# pandas
+# numpy
+# xlrd
+# Below dependencies for Auto database Backup Module
+dropbox
+pyncclient
+nextcloud-api-wrapper
+boto3
+paramiko
