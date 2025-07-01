@@ -12,6 +12,7 @@ services:
     volumes:
       - "odoo-data:/var/lib/odoo"
       - ./addons:/mnt/extra-addons
+      - ./config/odoo.conf:/etc/odoo/odoo.conf
     environment:
       - "HOST=db"
       - "USER=odoo"
