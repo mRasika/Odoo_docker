@@ -12,10 +12,12 @@ services:
     volumes:
       - "odoo-data:/var/lib/odoo"
       - ./addons:/mnt/extra-addons
+      - ./odoo.conf:/etc/odoo/odoo.conf  # Mount custom Odoo config
     environment:
       - "HOST=db"
       - "USER=odoo"
       - "PASSWORD_FILE=/run/secrets/postgresql_password"
+      - "DBFILTER=^%d$"  # Match subdomain as database name
     secrets:
       - "postgresql_password"
     networks:
