@@ -2,10 +2,10 @@ version: "3.9"
 
 services:
   odoo:
-    build: . # This will use our local Dockerfile
+    build: .
     container_name: "odoo_app"
-    # --- CHANGE 1: Enable Proxy Mode for Cloudflare ---
-    command: odoo --proxy-mode
+    # 1. Enable proxy mode and hide the database list
+    command: odoo --proxy-mode --no-database-list 
     depends_on:
       db: 
         condition: "service_healthy"
@@ -18,10 +18,7 @@ services:
       - "HOST=db"
       - "USER=odoo"
       - "PASSWORD_FILE=/run/secrets/postgresql_password"
-      # --- CHANGE 2: Filter Database by Domain ---
-      # ^%h$ means the database name must match the EXACT domain name.
-      # Example: visiting "shop.com" loads database "shop.com"
-      # Change to ^%d$ if you only want to match the subdomain (e.g. "shop" from shop.site.com)
+      # ODOO_DBFILTER with escaped dollar sign
       - "ODOO_DBFILTER=^%h$$"
     secrets:
       - "postgresql_password"
@@ -48,6 +45,30 @@ services:
       timeout: "5s"
       retries: 5
     restart: "unless-stopped"
+
+  # 2. THE DUMPER SIDECAR (Creates the safe .sql backup file)
+  odoo_backup:
+    image: prodrigestivill/postgres-backup-local
+    container_name: odoo_sql_dumper
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      - POSTGRES_HOST=db
+      - POSTGRES_DB=postgres
+      - POSTGRES_USER=odoo
+      - POSTGRES_PASSWORD_FILE=/run/secrets/postgresql_password
+      - POSTGRES_EXTRA_OPTS=-Z9 --schema=public --blobs
+      - SCHEDULE=@daily      # Runs once a day at midnight
+      - BACKUP_KEEP_DAYS=7   # Cleans up local dumps older than 7 days
+    volumes:
+      # This folder will contain the .sql files for Duplicati to read
+      - ./backups/odoo-db:/backups 
+    secrets:
+      - postgresql_password
+    networks:
+      - odoo-net
 
 volumes:
   odoo-data:
