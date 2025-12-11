@@ -16,3 +16,15 @@ odoo-config/
 *.log
 *.pyc
 __pycache__/
+
+# Ignore automated backups
+backups/
+dump/
+
+# Ignore Odoo filestore (images/attachments)
+odoo-data/
+postgres-data/
+
+# Ignore sensitive secrets
+secrets/
+*.env
