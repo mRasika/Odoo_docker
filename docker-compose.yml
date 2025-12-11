@@ -2,8 +2,10 @@ version: "3.9"
 
 services:
   odoo:
-    build: .  # This will use our local Dockerfile
+    build: . # This will use our local Dockerfile
     container_name: "odoo_app"
+    # --- CHANGE 1: Enable Proxy Mode for Cloudflare ---
+    command: odoo --proxy-mode
     depends_on:
       db: 
         condition: "service_healthy"
@@ -16,6 +18,11 @@ services:
       - "HOST=db"
       - "USER=odoo"
       - "PASSWORD_FILE=/run/secrets/postgresql_password"
+      # --- CHANGE 2: Filter Database by Domain ---
+      # ^%h$ means the database name must match the EXACT domain name.
+      # Example: visiting "shop.com" loads database "shop.com"
+      # Change to ^%d$ if you only want to match the subdomain (e.g. "shop" from shop.site.com)
+      - "ODOO_DBFILTER=^%h$$"
     secrets:
       - "postgresql_password"
     networks:
@@ -53,4 +60,3 @@ secrets:
 networks:
   odoo-net:
     driver: "bridge"
-
