@@ -5,7 +5,8 @@ services:
     build: .
     container_name: "odoo_app"
     # 1. Enable proxy mode and hide the database list
-    command: odoo --proxy-mode --no-database-list 
+    # command: odoo --proxy-mode --no-database-list --db-filter=^%d$$
+    command: odoo --proxy-mode
     depends_on:
       db: 
         condition: "service_healthy"
@@ -19,7 +20,7 @@ services:
       - "USER=odoo"
       - "PASSWORD_FILE=/run/secrets/postgresql_password"
       # ODOO_DBFILTER with escaped dollar sign
-      - "ODOO_DBFILTER=^%h$$"
+      #- "ODOO_DBFILTER=^%d$$"
     secrets:
       - "postgresql_password"
     networks:
