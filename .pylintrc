@@ -75,6 +75,8 @@ disable=
     W1525, # invalid-envvar-value
     W1526, # simplifiable-if-expression
     W1527, # string-bytes-assignment
+    W1530, # too-many-format-args
+    W1531, # anomalous-encoding-declaration
     W1528, # implicit-str-concat-in-sequence
     W1529, # no-self-use
     W1530, # too-many-format-args
@@ -235,6 +237,9 @@ disable=
     E0769, # misplaced-raise-statement
     E0770, # misplaced-break-statement
     E0771, # misplaced-continue-statement
+
+    W8113, # attribute-string-redundant
+    W8163, # no-search-all
 
 [FORMAT]
 max-line-length=120

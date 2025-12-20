@@ -32,8 +32,7 @@ class SalonChair(models.Model):
     name = fields.Char(string="Chair", required=True, readonly=True,
                        default="New", help="Name for chair")
     number_of_orders = fields.Integer(string="No.of Orders", help="Number of ")
-    collection_today = fields.Float(string="Today's Collection", 
-                                    help="Today's collection")
+    collection_today = fields.Float(string="Today's Collection", help="Today's collection")
     user_id = fields.Many2one(
         'res.users', string="User", readonly=True,
         help="You can select the user from the Users Tab"
@@ -55,7 +54,7 @@ class SalonChair(models.Model):
         """Add sequence for chair, start date and end date on creating record"""
         # values is a list of dicts for multi-create
         for vals in values:
-            if vals.get('name', _('New')) == _('New'):
+            if vals.get('name', self.env._('New')) == self.env._('New'):
                 vals['name'] = self.env['ir.sequence'].next_by_code(
                     'salon_chair_sequence')
             # handle user_line if provided (list of command tuples)
