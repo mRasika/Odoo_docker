@@ -1,0 +1,279 @@
+[MASTER]
+load-plugins=pylint_odoo
+extension-pkg-whitelist=lxml
+
+[MESSAGES CONTROL]
+disable=
+    missing-docstring,
+    empty-init,
+    old-style-class,
+    no-init,
+    fixme,
+    too-few-public-methods,
+    too-many-ancestors,
+    too-many-instance-attributes,
+    too-many-lines,
+    too-many-locals,
+    too-many-arguments,
+    W0613, # unused-argument
+    W0212, # protected-access
+    R0201, # method-hidden
+    C0103, # invalid-name
+    E1101, # no-member
+    E1120, # no-value-for-parameter
+    W0105, # pointless-string-statement
+    W0603, # global-statement
+    W0604, # global-at-module-level
+    W0612, # unused-variable
+    W0703, # broad-except
+    C0301, # line-too-long
+    C0302, # too-many-lines-in-module
+    C0325, # superfluous-parens
+    C0411, # wrong-import-order
+    C0412, # ungrouped-imports
+    C0413, # wrong-import-position
+    C0414, # useless-import-alias
+    C0415, # import-outside-toplevel
+    E0001, # syntax-error
+    E0011, # bad-indentation
+    E0012, # bad-continuation
+    E0602, # undefined-variable
+    E0611, # no-name-in-module
+    E0701, # syntax-error
+    E1003, # bad-super-call
+    E1102, # not-callable
+    E1136, # unsubscriptable-object
+    E1137, # unsupported-assignment-operation
+    E1138, # unsupported-delete-operation
+    E1139, # unsupported-binary-operation
+    E1140, # unsupported-unary-operation
+    W0621, # redefined-outer-name
+    W1501, # yield-inside-async-function
+    W1502, # using-yield-outside-function
+    W1503, # redundant-returns-condition
+    W1504, # cell-var-from-loop
+    W1505, # used-before-assignment
+    W1506, # undefined-loop-variable
+    W1507, # line-ending-in-whitespace
+    W1508, # no-else-return
+    W1509, # no-else-raise
+    W1510, # no-else-break
+    W1511, # no-else-continue
+    W1512, # bare-except
+    W1513, # duplicate-except
+    W1514, # misplaced-bare-raise
+    W1515, # useless-object-inheritance
+    W1516, # unnecessary-pass
+    W1517, # unnecessary-dunder-call
+    W1518, # useless-return
+    W1519, # inconsistent-return-statements
+    W1520, # missing-parentheses-for-call-in-test
+    W1521, # unsupported-membership-test
+    W1522, # trailing-comma-tuple
+    W1523, # anomalous-backslash-in-string
+    W1524, # missing-final-newline
+    W1525, # invalid-envvar-value
+    W1526, # simplifiable-if-expression
+    W1527, # string-bytes-assignment
+    W1528, # implicit-str-concat-in-sequence
+    W1529, # no-self-use
+    W1530, # too-many-format-args
+    W1531, # anomalous-encoding-declaration
+    W1532, # unsubscriptable-object
+    W1533, # unhashable-member
+    W1534, # unhashable-object
+    W1535, # unidiomatic-typecheck
+    W1536, # comparison-with-itself
+    W1537, # redefined-loop-name
+    W1538, # bad-str-strip-call
+    W1539, # old-division
+    W1540, # super-with-arguments
+    W1541, # too-many-boolean-expressions
+    W1542, # duplicate-key
+    W1543, # too-many-nested-blocks
+    W1544, # anomalous-backslashes
+    W1545, # misplaced-comparison-constant
+    W1546, # misplaced-str-end
+    W1547, # misplaced-format-string
+    W1548, # misplaced-format-function
+    W1549, # misplaced-interpolation-string
+    W1550, # misplaced-interpolation-function
+    W1551, # misplaced-binary-literal
+    W1552, # misplaced-octal-literal
+    W1553, # misplaced-hex-literal
+    W1554, # misplaced-float-literal
+    W1555, # misplaced-complex-literal
+    W1556, # misplaced-imaginary-literal
+    W1557, # misplaced-integer-literal
+    W1558, # misplaced-string-literal
+    W1559, # misplaced-bytes-literal
+    W1560, # misplaced-set-literal
+    W1561, # misplaced-list-literal
+    W1562, # misplaced-dict-literal
+    W1563, # misplaced-tuple-literal
+    W1564, # misplaced-none-literal
+    W1565, # misplaced-true-literal
+    W1566, # misplaced-false-literal
+    W1567, # misplaced-ellipsis-literal
+    W1568, # misplaced-await-expression
+    W1569, # misplaced-yield-expression
+    W1570, # misplaced-starred-expression
+    W1571, # misplaced-lambda-expression
+    W1572, # misplaced-if-expression
+    W1573, # misplaced-dict-comprehension
+    W1574, # misplaced-list-comprehension
+    W1575, # misplaced-set-comprehension
+    W1576, # misplaced-generator-expression
+    W1577, # misplaced-call-expression
+    W1578, # misplaced-attribute-expression
+    W1579, # misplaced-subscript-expression
+    W1580, # misplaced-slice-expression
+    W1581, # misplaced-comparison-expression
+    W1582, # misplaced-binary-operation-expression
+    W1583, # misplaced-unary-operation-expression
+    W1584, # misplaced-assign-expression
+    W1585, # misplaced-annotation-expression
+    W1586, # misplaced-expression-statement
+    W1587, # misplaced-assert-statement
+    W1588, # misplaced-if-statement
+    W1589, # misplaced-while-statement
+    W1590, # misplaced-for-statement
+    W1591, # misplaced-try-statement
+    W1592, # misplaced-with-statement
+    W1593, # misplaced-function-definition
+    W1594, # misplaced-class-definition
+    W1595, # misplaced-return-statement
+    W1596, # misplaced-yield-statement
+    W1597, # misplaced-raise-statement
+    W1598, # misplaced-break-statement
+    W1599, # misplaced-continue-statement
+    E0202, # redefined-builtin
+    E0203, # reimport
+    E0211, # no-method-argument
+    E0213, # no-self-argument
+    E0237, # invalid-slots-object
+    E0238, # keyword-arg-before-vararg
+    E0239, # keyword-arg-before-kwargs
+    E0240, # redundant-keyword-arg
+    E0241, # unexpected-keyword-arg
+    E0301, # duplicate-argument
+    E0302, # duplicate-value
+    E0303, # invalid-arguments-for-classmethod
+    E0304, # invalid-arguments-for-staticmethod
+    E0305, # invalid-first-argument
+    E0401, # import-error
+    E0402, # relative-import-without-dot
+    E0403, # relative-import-beyond-top-level
+    E0601, # used-before-assignment
+    E0702, # bare-except
+    E0703, # duplicate-except
+    E0704, # nonlocal-without-binding
+    E0705, # return-arg-in-generator
+    E0706, # yield-outside-function
+    E0707, # missing-final-newline
+    E0708, # redundant-returns-condition
+    E0709, # bad-super-call
+    E0710, # too-many-nested-blocks
+    E0711, # duplicate-key
+    E0712, # duplicate-values
+    E0713, # misplaced-comparison-constant
+    E0714, # bad-str-strip-call
+    E0715, # old-division
+    E0716, # super-with-arguments
+    E0717, # too-many-boolean-expressions
+    E0718, # anomalous-backslashes
+    E0719, # misplaced-format-string
+    E0720, # misplaced-format-function
+    E0721, # misplaced-interpolation-string
+    E0722, # misplaced-interpolation-function
+    E0723, # misplaced-binary-literal
+    E0724, # misplaced-octal-literal
+    E0725, # misplaced-hex-literal
+    E0726, # misplaced-float-literal
+    E0727, # misplaced-complex-literal
+    E0728, # misplaced-imaginary-literal
+    E0729, # misplaced-integer-literal
+    E0730, # misplaced-string-literal
+    E0731, # misplaced-bytes-literal
+    E0732, # misplaced-set-literal
+    E0733, # misplaced-list-literal
+    E0734, # misplaced-dict-literal
+    E0735, # misplaced-tuple-literal
+    E0736, # misplaced-none-literal
+    E0737, # misplaced-true-literal
+    E0738, # misplaced-false-literal
+    E0739, # misplaced-ellipsis-literal
+    E0740, # misplaced-await-expression
+    E0741, # misplaced-yield-expression
+    E0742, # misplaced-starred-expression
+    E0743, # misplaced-lambda-expression
+    E0744, # misplaced-if-expression
+    E0745, # misplaced-dict-comprehension
+    E0746, # misplaced-list-comprehension
+    E0747, # misplaced-set-comprehension
+    E0748, # misplaced-generator-expression
+    E0749, # misplaced-call-expression
+    E0750, # misplaced-attribute-expression
+    E0751, # misplaced-subscript-expression
+    E0752, # misplaced-slice-expression
+    E0753, # misplaced-comparison-expression
+    E0754, # misplaced-binary-operation-expression
+    E0755, # misplaced-unary-operation-expression
+    E0756, # misplaced-assign-expression
+    E0757, # misplaced-annotation-expression
+    E0758, # misplaced-expression-statement
+    E0759, # misplaced-assert-statement
+    E0760, # misplaced-if-statement
+    E0761, # misplaced-while-statement
+    E0762, # misplaced-for-statement
+    E0763, # misplaced-try-statement
+    E0764, # misplaced-with-statement
+    E0765, # misplaced-function-definition
+    E0766, # misplaced-class-definition
+    E0767, # misplaced-return-statement
+    E0768, # misplaced-yield-statement
+    E0769, # misplaced-raise-statement
+    E0770, # misplaced-break-statement
+    E0771, # misplaced-continue-statement
+
+[FORMAT]
+max-line-length=120
+indent-string='    '
+expected-line-ending-format=LF
+
+[TYPECHECK]
+ignored-modules=
+    odoo,
+    openerp,
+    addons
+ignored-classes=
+    odoo.osv.osv.osv_next,
+    odoo.addons.base.models.res_users.res_users,
+    odoo.http.request,
+    odoo.api.Environment
+
+[DESIGN]
+max-attributes=14
+max-locals=15
+max-returns=6
+max-statements=50
+max-parents=7
+min-public-methods=0
+
+[CLASSES]
+exclude-protected=_api,_insert,_update
+
+[METHOD_ARGS]
+max-args=6
+
+[BASIC]
+good-names=
+    _,
+    env,
+    cr,
+    uid,
+    self,
+    cls,
+    doc,
+    recs,
+    e
