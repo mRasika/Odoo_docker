@@ -274,3 +274,49 @@ class SalonOrder(models.Model):
         self.chair_id.number_of_orders = len(self.env['salon.order'].search([
         ]).filtered(lambda order: order.chair_id.id == self.chair_id.id
                     and order.stage_id in [2, 3]))
+
+    @api.constrains('chair_id', 'start_time', 'end_time', 'time_taken_total')
+    def _check_overlapping_orders(self):
+        """Ensure no two orders overlap for the same chair.
+
+        An order overlaps another when the time ranges intersect.
+        We consider orders in stages other than Closed/Cancel (ids 4 and 5)
+        as active and therefore conflicting.
+        """
+        for rec in self:
+            if not rec.chair_id or not rec.start_time:
+                continue
+            # compute this record's end time if absent
+            if rec.end_time:
+                this_end = rec.end_time
+            else:
+                # fallback to time_taken_total (hours)
+                try:
+                    this_end = rec.start_time + timedelta(hours=float(rec.time_taken_total or 0.0))
+                except Exception:
+                    # if cannot compute, skip validation
+                    continue
+
+            # search for other orders on same chair in active stages
+            other_orders = self.env['salon.order'].search([
+                ('chair_id', '=', rec.chair_id.id),
+                ('id', '!=', rec.id),
+                ('stage_id', 'not in', [4, 5]),
+            ])
+            for other in other_orders:
+                if not other.start_time:
+                    continue
+                if other.end_time:
+                    other_end = other.end_time
+                else:
+                    try:
+                        other_end = other.start_time + timedelta(hours=float(other.time_taken_total or 0.0))
+                    except Exception:
+                        # unable to compute other end; treat as point in time
+                        other_end = other.start_time
+
+                # check overlap: start < other_end and this_end > other.start_time
+                if rec.start_time < other_end and this_end > other.start_time:
+                    raise ValidationError(_(
+                        "Time overlap detected: chair %(chair)s has an existing order at the chosen time.",
+                        ) % {'chair': rec.chair_id.name})
