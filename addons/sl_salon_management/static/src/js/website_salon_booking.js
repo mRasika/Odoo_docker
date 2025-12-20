@@ -48,11 +48,23 @@ publicWidget.registry.SalonManagement = publicWidget.Widget.extend({
                         chair: chair,
                         number: number,
                         list_service:list_service
-
-                    }).then( function(result){
-                    if (JSON.parse(result).result == true){
-                        window.location.href = "/page/sl_salon_management/salon_booking_thank_you";
-                    }
+                    }).then(function(result){
+                        var res = result;
+                        try {
+                            if (typeof res === 'string'){
+                                res = JSON.parse(res);
+                            }
+                        } catch (e) {
+                            console.error('Invalid JSON from /page/salon_details', e, result);
+                        }
+                        if (res && res.result === true) {
+                            window.location.href = "/page/sl_salon_management/salon_booking_thank_you";
+                            return;
+                        }
+                        var msg = (res && res.error) ? res.error : _t('Selected time conflicts with an existing booking.');
+                        alert(msg);
+                    }).catch(function(){
+                        alert(_t('Server error occurred. Please try again later.'));
                     });
                     }
                  else {
