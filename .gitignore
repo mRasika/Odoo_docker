@@ -1,6 +1,8 @@
 # Odoo data
 addons/*
 !addons/.gitkeep
+!addons/sl_salon_management/
+!addons/sl_salon_management/**
 
 # Environment specific
 .env
