@@ -18,9 +18,10 @@
 #    along with this program.  If not, see <https://www.skylabs.app>.
 #
 ################################################################################
-from datetime import datetime, time
+from datetime import datetime, time, timedelta
 import pytz
 from odoo import fields, models
+from odoo.exceptions import ValidationError
 
 """Models for salon booking and related helpers."""
 
@@ -83,21 +84,46 @@ class SalonBooking(models.Model):
 
     def action_approve_booking(self):
         """Approve the booking for salon services"""
-        salon_order = self.env['salon.order'].create(
-                        {'customer_name': self.name,
-                         'chair_id': self.chair_id.id,
-                         'start_time': self.time,
-                         'date': fields.Datetime.now(),
-                         'stage_id': 1,
-                         'booking_identifier': True})
-        for service in self.service_ids:
-            self.env['salon.order.line'].create({
-                'service_id': service.id,
-                'time_taken': service.time_taken,
-                'price': service.price,
-                'price_subtotal': service.price,
-                'salon_order_id': salon_order.id,
-            })
+        for rec in self:
+            # compute total service time (in hours) and check for overlaps
+            total_hours = sum(s.time_taken for s in rec.service_ids) or 0.0
+            start_dt = rec.time
+            if start_dt:
+                try:
+                    end_dt = start_dt + timedelta(hours=float(total_hours))
+                except Exception:
+                    end_dt = None
+                if end_dt:
+                    overlap = self.env['salon.order'].search([
+                        ('chair_id', '=', rec.chair_id.id),
+                        ('stage_id', 'not in', [4, 5]),
+                        ('start_time', '<', end_dt),
+                        '|',
+                        ('end_time', '>', start_dt),
+                        ('end_time', '=', False),
+                    ], limit=1)
+                    if overlap:
+                        raise ValidationError(
+                            rec.env._(
+                                "Selected time overlaps with existing order %(name)s"
+                            ) % {'name': overlap.name}  # pylint: disable=translation-not-lazy
+                        )
+
+            salon_order = self.env['salon.order'].create(
+                            {'customer_name': rec.name,
+                             'chair_id': rec.chair_id.id,
+                             'start_time': rec.time,
+                             'date': fields.Datetime.now(),
+                             'stage_id': 1,
+                             'booking_identifier': True})
+            for service in rec.service_ids:
+                self.env['salon.order.line'].create({
+                    'service_id': service.id,
+                    'time_taken': service.time_taken,
+                    'price': service.price,
+                    'price_subtotal': service.price,
+                    'salon_order_id': salon_order.id,
+                })
 
         lang = 'en_US'
 

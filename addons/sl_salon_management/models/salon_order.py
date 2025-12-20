@@ -19,7 +19,7 @@
 #
 ################################################################################
 from datetime import date, datetime, timedelta
-from odoo import api, fields, models
+from odoo import api, fields, models, _
 from odoo.exceptions import UserError, ValidationError
 
 """Salon order models and business logic."""
@@ -78,10 +78,10 @@ class SalonOrder(models.Model):
     booking_identifier = fields.Boolean(string="Booking Identifier",
                                         help="Field to identify booking")
     user_id = fields.Many2one('res.users', string="Chair User")
-        salon_order_created_user = fields.Integer(string="Salon Order Created User",
-                                         default=lambda self: self.env.uid,
-                                         help="The user whom the salon"
-                                             " order created.")
+    salon_order_created_user = fields.Integer(string="Salon Order Created User",
+                                             default=lambda self: self.env.uid,
+                                             help="The user whom the salon"
+                                                 " order created.")
     count = fields.Integer(string='Delivery Orders', compute='_compute_count',
                            help="The count of the delivery")
 
@@ -317,6 +317,8 @@ class SalonOrder(models.Model):
 
                 # check overlap: start < other_end and this_end > other.start_time
                 if rec.start_time < other_end and this_end > other.start_time:
-                    raise ValidationError(_(
-                        "Time overlap detected: chair %(chair)s has an existing order at the chosen time.",
-                        ) % {'chair': rec.chair_id.name})
+                    raise ValidationError(
+                        rec.env._(
+                            "Time overlap detected: chair %(chair)s has an existing order at the chosen time."
+                        ) % {'chair': rec.chair_id.name}
+                    )
