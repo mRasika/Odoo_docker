@@ -19,7 +19,9 @@
 #
 ################################################################################
 from datetime import date
-from odoo import api, fields, models, _
+from odoo import api, fields, models
+
+"""Salon chair model definitions and helpers."""
 
 
 class SalonChair(models.Model):
@@ -45,7 +47,7 @@ class SalonChair(models.Model):
     active_booking_chairs = fields.Boolean(string="Active booking chairs",
                                            help="Check is chair a active chair")
     chair_created_user = fields.Integer(string="Salon Chair Created User",
-                                        default=lambda self: self._uid,
+                                        default=lambda self: self.env.uid,
                                         help="Chair created user")
 
     @api.model_create_multi
@@ -78,7 +80,7 @@ class SalonChair(models.Model):
                 if last:
                     vals['user_id'] = last.get('user_id')
                     vals['date'] = last.get('start_date')
-        return super(SalonChair, self).create(values)
+        return super().create(values)
 
     def collection_today_updater(self):
         """ Function to update the collection on the day for each chair """

@@ -18,9 +18,11 @@
 #    along with this program.  If not, see <https://www.skylabs.app>.
 #
 ################################################################################
+"""Website controllers for SL Salon Management addon."""
+
 import json
-import pytz
 from datetime import datetime, time
+import pytz
 from odoo import fields, http
 from odoo.http import request
 

@@ -20,8 +20,9 @@
 ################################################################################
 from datetime import date, datetime, timedelta
 from odoo import api, fields, models
-from odoo.tools.translate import _
 from odoo.exceptions import UserError, ValidationError
+
+"""Salon order models and business logic."""
 
 
 class SalonOrder(models.Model):
@@ -77,10 +78,10 @@ class SalonOrder(models.Model):
     booking_identifier = fields.Boolean(string="Booking Identifier",
                                         help="Field to identify booking")
     user_id = fields.Many2one('res.users', string="Chair User")
-    salon_order_created_user = fields.Integer(string="Salon Order Created User",
-                                              default=lambda self: self._uid,
-                                              help="The user whom the salon"
-                                                   " order created.")
+        salon_order_created_user = fields.Integer(string="Salon Order Created User",
+                                         default=lambda self: self.env.uid,
+                                         help="The user whom the salon"
+                                             " order created.")
     count = fields.Integer(string='Delivery Orders', compute='_compute_count',
                            help="The count of the delivery")
 
@@ -101,10 +102,10 @@ class SalonOrder(models.Model):
                 minutes = (total_time_taken - hours) * 60
                 try:
                     start_time_store = datetime.strptime(
-                        str(order.start_time).split(".")[0], "%Y-%m-%d %H:%M:%S")
+                        str(order.start_time).split('.', 1)[0], "%Y-%m-%d %H:%M:%S")
                     order.end_time = start_time_store + timedelta(
                         hours=hours, minutes=minutes)
-                except Exception:
+                except (ValueError, TypeError):
                     order.end_time = False
 
     def _compute_count(self):

@@ -19,3 +19,4 @@
 #
 ################################################################################
 from . import salon_management
+"""Controllers package for SL Salon Management addon."""

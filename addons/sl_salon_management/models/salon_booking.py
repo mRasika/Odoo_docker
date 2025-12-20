@@ -18,9 +18,11 @@
 #    along with this program.  If not, see <https://www.skylabs.app>.
 #
 ################################################################################
+from datetime import datetime, time
 import pytz
 from odoo import fields, models
-from datetime import datetime, time
+
+"""Models for salon booking and related helpers."""
 
 
 class SalonBooking(models.Model):
