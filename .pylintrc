@@ -240,6 +240,7 @@ disable=
 
     W8113, # attribute-string-redundant
     W8163, # no-search-all
+    C8101, # manifest-required-author
 
 [FORMAT]
 max-line-length=120

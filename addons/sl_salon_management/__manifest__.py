@@ -23,9 +23,6 @@
     'version': '18.0.1.1.1',
     "category": "Services",
     'summary': 'Beauty Parlour Management with Online Booking System',
-    'description': 'This module to helps your customers to do the online '
-                   'booking for using the service. This module integrates with '
-                   'other Odoo modules like accounting and website.',
     'author': 'Skylabs',
     'company': 'SkyLabs Company',
     'maintainer': 'SkyLabs Company',
@@ -68,7 +65,5 @@
     },
     'images': ['static/description/banner.png'],
     'license': 'AGPL-3',
-    'installable': True,
-    'auto_install': False,
     'application': True,
 }
