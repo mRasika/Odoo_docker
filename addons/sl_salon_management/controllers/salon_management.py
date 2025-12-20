@@ -32,9 +32,17 @@ class SalonBookingWeb(http.Controller):
 
     @http.route(route='/page/salon_details', type='json', auth='public',
                 website=True, csrf=False)
-    def salon_details(self, name, date, salon_time, phone, email, chair, number, list_service):
+    def salon_details(self, **kwargs):
+        name = kwargs.get('name')
+        date = kwargs.get('date')
+        salon_time = kwargs.get('salon_time')
+        phone = kwargs.get('phone')
+        email = kwargs.get('email')
+        chair = kwargs.get('chair')
+        number = kwargs.get('number')
+        list_service = kwargs.get('list_service') or []
         service_lists = [service['item'] for service in list_service]
-        dates_time = date + " " + salon_time + ":00"
+        dates_time = (date or '') + " " + (salon_time or '') + ":00"
         user_tz = request.env.user.tz or 'UTC'
         if isinstance(user_tz, bool):
             user_tz = 'UTC'
