@@ -19,9 +19,12 @@
 #
 ################################################################################
 from datetime import datetime, time, timedelta
+import logging
 import pytz
-from odoo import fields, models
+from odoo import fields, models, api
 from odoo.exceptions import ValidationError
+
+_logger = logging.getLogger(__name__)
 
 """Models for salon booking and related helpers."""
 
@@ -81,6 +84,128 @@ class SalonBooking(models.Model):
                 ('start_time', '<=', date_end),
             ])
             rec.filtered_order_ids = [(6, 0, salon_orders.ids)]
+
+    @api.constrains('time', 'chair_id', 'service_ids', 'state')
+    def _check_booking_no_overlap(self):
+        """Ensure a booking (draft or approved) does not overlap existing orders."""
+        for rec in self:
+            if not rec.time or rec.state == 'rejected':
+                continue
+            # compute total service time (in hours)
+            total_hours = sum(s.time_taken for s in rec.service_ids) or 0.0
+            try:
+                end_dt = rec.time + timedelta(hours=float(total_hours))
+            except Exception:
+                end_dt = None
+            if not end_dt:
+                continue
+            overlap = self.env['salon.order'].search([
+                ('chair_id', '=', rec.chair_id.id),
+                ('stage_id', 'not in', [4, 5]),
+                ('start_time', '<', end_dt),
+                '|',
+                ('end_time', '>', rec.time),
+                ('end_time', '=', False),
+            ], limit=1)
+            if overlap:
+                raise ValidationError(
+                    rec.env._(
+                        "Selected time overlaps with existing order %(name)s"
+                    ) % {'name': overlap.name}  # pylint: disable=translation-not-lazy
+                )
+
+    @classmethod
+    def _extract_service_ids_from_vals(cls, vals):
+        """Extract a list of service ids from vals['service_ids'] commands if present."""
+        svc_ids = None
+        cmds = vals.get('service_ids')
+        if cmds:
+            # handle common (6, 0, [ids]) command
+            for cmd in cmds:
+                if isinstance(cmd, (list, tuple)) and len(cmd) >= 3 and cmd[0] == 6:
+                    svc_ids = list(cmd[2])
+                    break
+            # fallback: single id (4, id, _) or (4, id)
+            if svc_ids is None:
+                ids = []
+                for cmd in cmds:
+                    if isinstance(cmd, (list, tuple)) and len(cmd) >= 2 and cmd[0] == 4:
+                        ids.append(cmd[1])
+                if ids:
+                    svc_ids = ids
+        return svc_ids
+
+    def _validate_overlap_vals(self, time_val, chair_id, service_ids):
+        """Validate overlap using provided values (time, chair, service ids)."""
+        if not time_val or not chair_id:
+            return
+        total_hours = 0.0
+        if service_ids is not None:
+            services = self.env['salon.service'].browse(service_ids)
+            total_hours = sum(s.time_taken for s in services) or 0.0
+        else:
+            # No service ids in vals: use minimal check (treat as existent zero-duration)
+            total_hours = 0.0
+        try:
+            end_dt = time_val + timedelta(hours=float(total_hours))
+        except Exception:
+            end_dt = None
+        if not end_dt:
+            # If we cannot compute an end, still check for any order that contains the start time
+            overlap = self.env['salon.order'].search([
+                ('chair_id', '=', chair_id),
+                ('stage_id', 'not in', [4, 5]),
+                ('start_time', '<=', time_val),
+                ('end_time', '>=', time_val),
+            ], limit=1)
+        else:
+            overlap = self.env['salon.order'].search([
+                ('chair_id', '=', chair_id),
+                ('stage_id', 'not in', [4, 5]),
+                ('start_time', '<', end_dt),
+                '|',
+                ('end_time', '>', time_val),
+                ('end_time', '=', False),
+            ], limit=1)
+        if overlap:
+            raise ValidationError(
+                self.env._("Selected time overlaps with existing order %(name)s") % {
+                    'name': overlap.name}
+            )
+
+    @api.model_create_multi
+    def create(self, vals_list):
+        # validate each incoming vals dict before creating records
+        for vals in vals_list:
+            time_val = vals.get('time')
+            chair_id = vals.get('chair_id') or vals.get('chair') or vals.get('chair_id')
+            svc_ids = self._extract_service_ids_from_vals(vals)
+            # if time is a string, try parse to datetime via fields.Datetime
+            if isinstance(time_val, str):
+                try:
+                    time_val = fields.Datetime.from_string(time_val)
+                except Exception:
+                    time_val = None
+            if time_val and chair_id:
+                self._validate_overlap_vals(time_val, chair_id, svc_ids)
+        return super().create(vals_list)
+
+    def write(self, vals):
+        # validate each record with prospective values
+        svc_ids = self._extract_service_ids_from_vals(vals)
+        for rec in self:
+            time_val = vals.get('time', rec.time)
+            chair_id = vals.get('chair_id', rec.chair_id.id)
+            # parse strings
+            if isinstance(time_val, str):
+                try:
+                    time_val = fields.Datetime.from_string(time_val)
+                except Exception:
+                    time_val = rec.time
+            # if service ids not provided in vals, keep existing services
+            effective_svc_ids = svc_ids if svc_ids is not None else [s.id for s in rec.service_ids]
+            self._validate_overlap_vals(time_val, chair_id, effective_svc_ids)
+        return super().write(vals)
 
     def action_approve_booking(self):
         """Approve the booking for salon services"""
@@ -154,3 +279,65 @@ class SalonBooking(models.Model):
                 [('partner_salon', '=', True)]),
             'chairs': self.env['salon.chair'].search([])
         }
+
+    @api.model
+    def web_save(self, values=None, **kwargs):
+        """Endpoint used by website/web dataset to save booking data.
+
+        Returns a structured dict on validation failure so callers can
+        surface a user-friendly message instead of silently succeeding.
+        """
+        # values may be a dict for single record or a list for multiple
+        # accept variant payload forms used by webdataset RPCs
+        incoming = values if values is not None else kwargs.get('specification') or kwargs.get('values') or kwargs
+        _logger.info('web_save called with incoming payload: %s; kwargs: %s', incoming, kwargs)
+        try:
+            if isinstance(incoming, list):
+                # validate each dict and raise on overlap to surface error
+                for vals in incoming:
+                    time_val = vals.get('time')
+                    chair_id = vals.get('chair_id') or vals.get('chair')
+                    svc_ids = self._extract_service_ids_from_vals(vals)
+                    if isinstance(time_val, str):
+                        try:
+                            time_val = fields.Datetime.from_string(time_val)
+                        except Exception:
+                            time_val = None
+                    if time_val and chair_id:
+                        # explicitly search for overlap and log details
+                        try:
+                            self._validate_overlap_vals(time_val, chair_id, svc_ids)
+                        except ValidationError as e:
+                            _logger.warning('Overlap detected in web_save for chair %s at %s: %s', chair_id, time_val, e)
+                            raise
+                # all validated: create records
+                recs = self.create(incoming)
+                return {'result': True, 'ids': recs.ids}
+
+            # single record path
+            vals = incoming or {}
+            time_val = vals.get('time')
+            chair_id = vals.get('chair_id') or vals.get('chair')
+            svc_ids = self._extract_service_ids_from_vals(vals)
+            if isinstance(time_val, str):
+                try:
+                    time_val = fields.Datetime.from_string(time_val)
+                except Exception:
+                    time_val = None
+            if time_val and chair_id:
+                # explicitly search for overlap and log details
+                try:
+                    self._validate_overlap_vals(time_val, chair_id, svc_ids)
+                except ValidationError as e:
+                    _logger.warning('Overlap detected in web_save for chair %s at %s: %s', chair_id, time_val, e)
+                    raise
+            rec = self.create([vals])
+            return {'result': True, 'ids': rec.ids}
+        except ValidationError:
+            # Let Odoo handle ValidationError -> RPC returns a proper error
+            # message to the web client.
+            raise
+        except Exception as exc:  # pylint: disable=broad-except
+            _logger.exception('Unexpected error in web_save: %s', exc)
+            # For unexpected errors raise a ValidationError to surface in UI
+            raise ValidationError(self.env._('Server error: %s') % (exc,))

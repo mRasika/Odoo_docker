@@ -21,7 +21,7 @@
 """Website controllers for SL Salon Management addon."""
 
 import json
-from datetime import datetime, time
+from datetime import datetime, time, timedelta
 import pytz
 from odoo import fields, http
 from odoo.http import request
@@ -41,7 +41,17 @@ class SalonBookingWeb(http.Controller):
         chair = kwargs.get('chair')
         number = kwargs.get('number')
         list_service = kwargs.get('list_service') or []
-        service_lists = [service['item'] for service in list_service]
+        # normalize ids that may come as strings from the form
+        try:
+            chair = int(chair) if chair is not None else None
+        except Exception:
+            chair = None
+        service_lists = []
+        for service in list_service:
+            try:
+                service_lists.append(int(service.get('item')))
+            except Exception:
+                pass
         dates_time = (date or '') + " " + (salon_time or '') + ":00"
         user_tz = request.env.user.tz or 'UTC'
         if isinstance(user_tz, bool):
@@ -50,14 +60,57 @@ class SalonBookingWeb(http.Controller):
         date_and_time = (local_tz.localize(
             datetime.strptime(str(dates_time), '%Y-%m-%d %H:%M:%S')).
                          astimezone(pytz.UTC).replace(tzinfo=None))
+        # compute total service time (hours) for requested services
+        services = request.env['salon.service'].search([('id', 'in', service_lists)]) if service_lists else request.env['salon.service'].browse([])
+        total_hours = sum(s.time_taken for s in services) or 0.0
+        try:
+            requested_end = date_and_time + timedelta(hours=float(total_hours))
+        except Exception:
+            requested_end = None
+
+        # check overlap with existing salon.order (active stages)
+        if requested_end and chair:
+            conflicting_order = request.env['salon.order'].search([
+                ('chair_id', '=', chair),
+                ('stage_id', 'not in', [4, 5]),
+                ('start_time', '<', requested_end),
+            ], limit=10)
+            for o in conflicting_order:
+                # compute other end time
+                if o.end_time:
+                    other_end = o.end_time
+                else:
+                    try:
+                        other_end = o.start_time + timedelta(hours=float(o.time_taken_total or 0.0))
+                    except Exception:
+                        other_end = o.start_time
+                if o.start_time and (date_and_time < other_end and requested_end > o.start_time):
+                    return json.dumps({'result': False, 'error': 'Selected time conflicts with an existing order.'})
+
+            # check overlap with existing bookings (non-rejected)
+            candidate_bookings = request.env['salon.booking'].search([
+                ('chair_id', '=', chair),
+                ('state', '!=', 'rejected'),
+            ])
+            for b in candidate_bookings:
+                if not b.time:
+                    continue
+                b_services = b.service_ids
+                b_total = sum(s.time_taken for s in b_services) or 0.0
+                try:
+                    b_end = b.time + timedelta(hours=float(b_total))
+                except Exception:
+                    b_end = b.time
+                if date_and_time < b_end and (requested_end or date_and_time) > b.time:
+                    return json.dumps({'result': False, 'error': 'Selected time conflicts with an existing booking.'})
+
         a = request.env['salon.booking'].create({
             'name': name,
             'phone': phone,
             'time': date_and_time,
             'email': email,
             'chair_id': chair,
-            'service_ids': [(6, 0, [salon.id for salon in request.env
-            ['salon.service'].search([('id', 'in', service_lists)])])],
+            'service_ids': [(6, 0, service_lists or [salon.id for salon in services])],
         })
 
         return json.dumps({'result': True})
