@@ -98,6 +98,10 @@ docker logs odoo_db
 1. Place your custom modules in the `addons/` directory
 2. Install them through Odoo's web interface or update the configuration
 
+### Automation helpers
+- `addons/sl_salon_management/scripts/booking_ui_automation.py` mimics the backend booking form, approves the draft, and asserts an order links back to the booking so you can exercise the overlap/approval path without manual clicks.
+- Run it from inside the Odoo container to execute the flow: `docker compose exec -T odoo python3 /mnt/extra-addons/sl_salon_management/scripts/booking_ui_automation.py`.
+
 ## Common Issues and Solutions
 
 ### Database Connection Issues
