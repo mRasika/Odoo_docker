@@ -91,8 +91,20 @@ class SalonBooking(models.Model):
         if isinstance(value, dict):
             return value.get('id') or value.get('res_id')
         if isinstance(value, (list, tuple)) and value:
-            first = value[0]
-            return SalonBooking._normalize_record_id(first)
+            command = value[0]
+            if command in (4,):
+                if len(value) >= 2:
+                    return value[1]
+            if command == 6 and len(value) >= 3:
+                ids = value[2]
+                if ids:
+                    return ids[0]
+                return None
+            if command == 0 and len(value) >= 3:
+                return SalonBooking._normalize_record_id(value[2])
+            # fallback: (id, name) tuple or similar
+            if isinstance(command, int) and command > 0 and len(value) >= 1:
+                return command
         if hasattr(value, 'id'):
             return value.id
         return value
