@@ -87,9 +87,12 @@ class SalonBooking(models.Model):
 
     @staticmethod
     def _normalize_record_id(value):
-        """Return a scalar id for records/dicts, otherwise leave the value as-is."""
+        """Return a scalar id when given a record/dict/list/tuple payload."""
         if isinstance(value, dict):
             return value.get('id') or value.get('res_id')
+        if isinstance(value, (list, tuple)) and value:
+            first = value[0]
+            return SalonBooking._normalize_record_id(first)
         if hasattr(value, 'id'):
             return value.id
         return value
