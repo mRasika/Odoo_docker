@@ -85,6 +85,15 @@ class SalonBooking(models.Model):
             ])
             rec.filtered_order_ids = [(6, 0, salon_orders.ids)]
 
+    @staticmethod
+    def _normalize_record_id(value):
+        """Return a scalar id for records/dicts, otherwise leave the value as-is."""
+        if isinstance(value, dict):
+            return value.get('id') or value.get('res_id')
+        if hasattr(value, 'id'):
+            return value.id
+        return value
+
     @api.constrains('time', 'chair_id', 'service_ids', 'state')
     def _check_booking_no_overlap(self):
         """Ensure a booking (draft or approved) does not overlap existing orders."""
@@ -99,14 +108,22 @@ class SalonBooking(models.Model):
                 end_dt = None
             if not end_dt:
                 continue
-            overlap = self.env['salon.order'].search([
+            overlap_domain = [
                 ('chair_id', '=', rec.chair_id.id),
                 ('stage_id', 'not in', [4, 5]),
                 ('start_time', '<', end_dt),
                 '|',
                 ('end_time', '>', rec.time),
                 ('end_time', '=', False),
-            ], limit=1)
+            ]
+            approved_order_id = self.env.context.get('_approved_order_id')
+            if approved_order_id:
+                order_to_skip = approved_order_id.id if hasattr(approved_order_id, 'id') else approved_order_id
+                overlap_domain.append(('id', '!=', order_to_skip))
+            booking_id = rec.id if rec.id else False
+            if booking_id:
+                overlap_domain.append(('booking_id', '!=', booking_id))
+            overlap = self.env['salon.order'].search(overlap_domain, limit=1)
             if overlap:
                 raise ValidationError(
                     rec.env._(
@@ -135,9 +152,12 @@ class SalonBooking(models.Model):
                     svc_ids = ids
         return svc_ids
 
-    def _validate_overlap_vals(self, time_val, chair_id, service_ids):
+    def _validate_overlap_vals(self, time_val, chair_id, service_ids, booking_id=None):
         """Validate overlap using provided values (time, chair, service ids)."""
         if not time_val or not chair_id:
+            return
+        chair_id = self._normalize_record_id(chair_id)
+        if not chair_id:
             return
         total_hours = 0.0
         if service_ids is not None:
@@ -150,23 +170,28 @@ class SalonBooking(models.Model):
             end_dt = time_val + timedelta(hours=float(total_hours))
         except Exception:
             end_dt = None
+        overlap_domain = [
+            ('chair_id', '=', chair_id),
+            ('stage_id', 'not in', [4, 5]),
+        ]
+        normalized_booking_id = None
+        if booking_id:
+            normalized_booking_id = booking_id.id if hasattr(booking_id, 'id') else booking_id
+            overlap_domain.append(('booking_id', '!=', normalized_booking_id))
         if not end_dt:
             # If we cannot compute an end, still check for any order that contains the start time
-            overlap = self.env['salon.order'].search([
-                ('chair_id', '=', chair_id),
-                ('stage_id', 'not in', [4, 5]),
+            overlap_domain += [
                 ('start_time', '<=', time_val),
                 ('end_time', '>=', time_val),
-            ], limit=1)
+            ]
         else:
-            overlap = self.env['salon.order'].search([
-                ('chair_id', '=', chair_id),
-                ('stage_id', 'not in', [4, 5]),
+            overlap_domain += [
                 ('start_time', '<', end_dt),
                 '|',
                 ('end_time', '>', time_val),
                 ('end_time', '=', False),
-            ], limit=1)
+            ]
+        overlap = self.env['salon.order'].search(overlap_domain, limit=1)
         if overlap:
             raise ValidationError(
                 self.env._("Selected time overlaps with existing order %(name)s") % {
@@ -178,7 +203,7 @@ class SalonBooking(models.Model):
         # validate each incoming vals dict before creating records
         for vals in vals_list:
             time_val = vals.get('time')
-            chair_id = vals.get('chair_id') or vals.get('chair') or vals.get('chair_id')
+            chair_id = vals.get('chair_id') or vals.get('chair')
             svc_ids = self._extract_service_ids_from_vals(vals)
             # if time is a string, try parse to datetime via fields.Datetime
             if isinstance(time_val, str):
@@ -186,8 +211,11 @@ class SalonBooking(models.Model):
                     time_val = fields.Datetime.from_string(time_val)
                 except Exception:
                     time_val = None
+            normalized_chair = self._normalize_record_id(chair_id)
+            if normalized_chair:
+                vals['chair_id'] = normalized_chair
             if time_val and chair_id:
-                self._validate_overlap_vals(time_val, chair_id, svc_ids)
+                self._validate_overlap_vals(time_val, normalized_chair, svc_ids)
         return super().create(vals_list)
 
     def write(self, vals):
@@ -195,7 +223,7 @@ class SalonBooking(models.Model):
         svc_ids = self._extract_service_ids_from_vals(vals)
         for rec in self:
             time_val = vals.get('time', rec.time)
-            chair_id = vals.get('chair_id', rec.chair_id.id)
+            chair_id = vals.get('chair_id', rec.chair_id)
             # parse strings
             if isinstance(time_val, str):
                 try:
@@ -204,11 +232,18 @@ class SalonBooking(models.Model):
                     time_val = rec.time
             # if service ids not provided in vals, keep existing services
             effective_svc_ids = svc_ids if svc_ids is not None else [s.id for s in rec.service_ids]
-            self._validate_overlap_vals(time_val, chair_id, effective_svc_ids)
+            normalized_chair = self._normalize_record_id(chair_id)
+            if normalized_chair:
+                vals['chair_id'] = normalized_chair
+            self._validate_overlap_vals(time_val, normalized_chair, effective_svc_ids, booking_id=rec.id)
         return super().write(vals)
 
     def action_approve_booking(self):
         """Approve the booking for salon services"""
+        lang = 'en_US'
+        template = self.env.ref('sl_salon_management.mail_template_salon_approved')
+        template.with_context(lang=lang)
+
         for rec in self:
             # compute total service time (in hours) and check for overlaps
             total_hours = sum(s.time_taken for s in rec.service_ids) or 0.0
@@ -234,13 +269,14 @@ class SalonBooking(models.Model):
                             ) % {'name': overlap.name}  # pylint: disable=translation-not-lazy
                         )
 
-            salon_order = self.env['salon.order'].create(
-                            {'customer_name': rec.name,
-                             'chair_id': rec.chair_id.id,
-                             'start_time': rec.time,
-                             'date': fields.Datetime.now(),
-                             'stage_id': 1,
-                             'booking_identifier': True})
+                salon_order = self.env['salon.order'].create(
+                                {'customer_name': rec.name,
+                                 'chair_id': rec.chair_id.id,
+                                 'start_time': rec.time,
+                                 'date': fields.Datetime.now(),
+                                     'stage_id': 1,
+                                     'booking_identifier': True,
+                                     'booking_id': rec.id})
             for service in rec.service_ids:
                 self.env['salon.order.line'].create({
                     'service_id': service.id,
@@ -249,13 +285,7 @@ class SalonBooking(models.Model):
                     'price_subtotal': service.price,
                     'salon_order_id': salon_order.id,
                 })
-
-        lang = 'en_US'
-
-        template = self.env.ref('sl_salon_management.mail_template_salon_approved')
-        template.with_context(lang=lang)
-
-        self.state = "approved"
+            rec.with_context(_approved_order_id=salon_order.id).state = "approved"
 
     def action_reject_booking(self):
         """Reject booking for salon services"""
@@ -281,16 +311,59 @@ class SalonBooking(models.Model):
         }
 
     @api.model
-    def web_save(self, values=None, **kwargs):
+    def web_save(self, *args, **kwargs):
         """Endpoint used by website/web dataset to save booking data.
 
         Returns a structured dict on validation failure so callers can
         surface a user-friendly message instead of silently succeeding.
         """
-        # values may be a dict for single record or a list for multiple
-        # accept variant payload forms used by webdataset RPCs
-        incoming = values if values is not None else kwargs.get('specification') or kwargs.get('values') or kwargs
-        _logger.info('web_save called with incoming payload: %s; kwargs: %s', incoming, kwargs)
+        def _extract_payload(src_args, src_kwargs):
+            payload = None
+            source = None
+
+            for key in ('values', 'specification'):
+                if key in src_kwargs:
+                    payload = src_kwargs[key]
+                    source = f'kwargs[{key}]'
+                    break
+
+            if payload is None and len(src_args) >= 3 and isinstance(src_args[2], (list, tuple)):
+                payload_args = src_args[2]
+                payload_kwargs = src_args[3] if len(src_args) > 3 else {}
+                if payload_args:
+                    payload = payload_args[0]
+                    source = 'call_kw args'
+                else:
+                    for key in ('values', 'specification'):
+                        if key in payload_kwargs:
+                            payload = payload_kwargs[key]
+                            source = f'call_kw kwargs[{key}]'
+                            break
+                    if payload is None:
+                        payload = payload_kwargs
+                        source = 'call_kw kwargs fallback'
+
+            if payload is None and src_args:
+                for arg in src_args:
+                    if isinstance(arg, (list, tuple, dict)):
+                        payload = arg
+                        source = 'positional'
+                        break
+
+            if payload is None:
+                payload = src_kwargs or {}
+                source = 'fallback kwargs'
+
+            if isinstance(payload, (list, tuple)):
+                dict_entries = [entry for entry in payload if isinstance(entry, dict)]
+                if dict_entries:
+                    payload = payload if all(isinstance(entry, dict) for entry in payload) else dict_entries
+
+            return payload, source
+
+        incoming, source_info = _extract_payload(args, kwargs)
+        _logger.info('web_save called (source=%s) payload=%s; args=%s; kwargs=%s',
+                     source_info, incoming, args, kwargs)
         try:
             if isinstance(incoming, list):
                 # validate each dict and raise on overlap to surface error
@@ -303,10 +376,13 @@ class SalonBooking(models.Model):
                             time_val = fields.Datetime.from_string(time_val)
                         except Exception:
                             time_val = None
-                    if time_val and chair_id:
+                    normalized_chair = self._normalize_record_id(chair_id)
+                    if normalized_chair:
+                        vals['chair_id'] = normalized_chair
+                    if time_val and normalized_chair:
                         # explicitly search for overlap and log details
                         try:
-                            self._validate_overlap_vals(time_val, chair_id, svc_ids)
+                            self._validate_overlap_vals(time_val, normalized_chair, svc_ids)
                         except ValidationError as e:
                             _logger.warning('Overlap detected in web_save for chair %s at %s: %s', chair_id, time_val, e)
                             raise
@@ -324,10 +400,13 @@ class SalonBooking(models.Model):
                     time_val = fields.Datetime.from_string(time_val)
                 except Exception:
                     time_val = None
-            if time_val and chair_id:
+            normalized_chair = self._normalize_record_id(chair_id)
+            if normalized_chair:
+                vals['chair_id'] = normalized_chair
+            if time_val and normalized_chair:
                 # explicitly search for overlap and log details
                 try:
-                    self._validate_overlap_vals(time_val, chair_id, svc_ids)
+                    self._validate_overlap_vals(time_val, normalized_chair, svc_ids)
                 except ValidationError as e:
                     _logger.warning('Overlap detected in web_save for chair %s at %s: %s', chair_id, time_val, e)
                     raise

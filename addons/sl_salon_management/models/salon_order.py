@@ -53,6 +53,8 @@ class SalonOrder(models.Model):
     chair_id = fields.Many2one('salon.chair', string="Chair",
                                required=True, help="Chair for the current "
                                                    "order")
+    booking_id = fields.Many2one('salon.booking', string="Booking",
+                                 help="Reference back to the originating booking")
     price_subtotal = fields.Monetary(string='Total', readonly=True, store=True,
                                      compute='_compute_price_subtotal',
                                      help="Total price of order")
