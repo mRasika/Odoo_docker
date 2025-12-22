@@ -6,6 +6,7 @@ addons/*
 .env
 
 # Docker volumes
+backups/odoo-db
 odoo-web-data/
 odoo-db-data/
 odoo-config/
