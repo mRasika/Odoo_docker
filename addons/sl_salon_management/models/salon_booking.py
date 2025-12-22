@@ -311,10 +311,15 @@ class SalonBooking(models.Model):
 
     def action_reject_booking(self):
         """Reject booking for salon services"""
-        self.env['mail.template'].browse(self.env.ref(
-            'sl_salon_management.mail_template_salon_rejected')
-                                         .id).send_mail(self.id,
-                                                        force_send=True)
+        try:
+            template = self.env.ref('sl_salon_management.mail_template_salon_rejected', raise_if_not_found=False)
+            if template:
+                template.send_mail(self.id, force_send=True)
+            else:
+                _logger.warning("Mail template 'sl_salon_management.mail_template_salon_rejected' not found. Skipping email.")
+        except Exception as e:
+            _logger.warning("Failed to send rejection email: %s", e)
+        
         self.state = "rejected"
 
     def get_booking_count(self):
@@ -332,159 +337,3 @@ class SalonBooking(models.Model):
             'chairs': self.env['salon.chair'].search([])
         }
 
-    @api.model
-    def web_save(self, *args, **kwargs):
-        """Endpoint used by website/web dataset to save booking data.
-
-        Returns a structured dict on validation failure so callers can
-        surface a user-friendly message instead of silently succeeding.
-        """
-        def _extract_payload(src_args, src_kwargs):
-            payload = None
-            source = None
-
-            def _is_payload_candidate(entry):
-                if not isinstance(entry, dict):
-                    return False
-                chair_val = entry.get('chair_id') or entry.get('chair')
-                if chair_val is not None:
-                    if isinstance(chair_val, dict):
-                        if 'id' in chair_val or 'res_id' in chair_val:
-                            return True
-                    else:
-                        return True
-                time_val = entry.get('time')
-                if time_val is not None and not isinstance(time_val, dict):
-                    return True
-                service_val = entry.get('service_ids')
-                if service_val is not None:
-                    if isinstance(service_val, dict):
-                        if not service_val.get('fields'):
-                            return True
-                    else:
-                        return True
-                return False
-
-            def _scan_args(sequence, prefix):
-                for idx, entry in enumerate(sequence):
-                    entry_source = f"{prefix}[{idx}]"
-                    if _is_payload_candidate(entry):
-                        return entry, entry_source
-                    if isinstance(entry, (list, tuple)):
-                        nested, nested_source = _scan_args(entry, f"{entry_source}.entry")
-                        if nested is not None:
-                            return nested, nested_source
-                return None, None
-
-            tight_candidate, tight_source = _scan_args(src_args, 'positional')
-            if tight_candidate is not None:
-                return tight_candidate, tight_source
-
-            for key, value in src_kwargs.items():
-                kw_source = f'kwargs[{key}]'
-                if _is_payload_candidate(value):
-                    return value, kw_source
-                if isinstance(value, (list, tuple)):
-                    nested, nested_source = _scan_args(value, kw_source)
-                    if nested is not None:
-                        return nested, nested_source
-
-            for key in ('values', 'specification'):
-                if key in src_kwargs:
-                    payload = src_kwargs[key]
-                    source = f'kwargs[{key}]'
-                    break
-
-            if payload is None and len(src_args) >= 3 and isinstance(src_args[2], (list, tuple)):
-                payload_args = src_args[2]
-                payload_kwargs = src_args[3] if len(src_args) > 3 else {}
-                if payload_args:
-                    payload = payload_args[0]
-                    source = 'call_kw args'
-                else:
-                    for key in ('values', 'specification'):
-                        if key in payload_kwargs:
-                            payload = payload_kwargs[key]
-                            source = f'call_kw kwargs[{key}]'
-                            break
-                    if payload is None:
-                        payload = payload_kwargs
-                        source = 'call_kw kwargs fallback'
-
-            if payload is None and src_args:
-                for arg in src_args:
-                    if isinstance(arg, (list, tuple, dict)):
-                        payload = arg
-                        source = 'positional'
-                        break
-
-            if payload is None:
-                payload = src_kwargs or {}
-                source = 'fallback kwargs'
-
-            if isinstance(payload, (list, tuple)):
-                dict_entries = [entry for entry in payload if isinstance(entry, dict)]
-                if dict_entries:
-                    payload = payload if all(isinstance(entry, dict) for entry in payload) else dict_entries
-
-            return payload, source
-
-        incoming, source_info = _extract_payload(args, kwargs)
-        _logger.info('web_save called (source=%s) payload=%s; args=%s; kwargs=%s',
-                     source_info, incoming, args, kwargs)
-        try:
-            if isinstance(incoming, list):
-                # validate each dict and raise on overlap to surface error
-                for vals in incoming:
-                    time_val = vals.get('time')
-                    chair_id = vals.get('chair_id') or vals.get('chair')
-                    svc_ids = self._extract_service_ids_from_vals(vals)
-                    if isinstance(time_val, str):
-                        try:
-                            time_val = fields.Datetime.from_string(time_val)
-                        except Exception:
-                            time_val = None
-                    normalized_chair = self._normalize_record_id(chair_id)
-                    if normalized_chair:
-                        vals['chair_id'] = normalized_chair
-                    if time_val and normalized_chair:
-                        # explicitly search for overlap and log details
-                        try:
-                            self._validate_overlap_vals(time_val, normalized_chair, svc_ids)
-                        except ValidationError as e:
-                            _logger.warning('Overlap detected in web_save for chair %s at %s: %s', chair_id, time_val, e)
-                            raise
-                # all validated: create records
-                recs = self.create(incoming)
-                return recs.ids
-
-            # single record path
-            vals = incoming or {}
-            time_val = vals.get('time')
-            chair_id = vals.get('chair_id') or vals.get('chair')
-            svc_ids = self._extract_service_ids_from_vals(vals)
-            if isinstance(time_val, str):
-                try:
-                    time_val = fields.Datetime.from_string(time_val)
-                except Exception:
-                    time_val = None
-            normalized_chair = self._normalize_record_id(chair_id)
-            if normalized_chair:
-                vals['chair_id'] = normalized_chair
-            if time_val and normalized_chair:
-                # explicitly search for overlap and log details
-                try:
-                    self._validate_overlap_vals(time_val, normalized_chair, svc_ids)
-                except ValidationError as e:
-                    _logger.warning('Overlap detected in web_save for chair %s at %s: %s', chair_id, time_val, e)
-                    raise
-            rec = self.create([vals])
-            return rec.id
-        except ValidationError:
-            # Let Odoo handle ValidationError -> RPC returns a proper error
-            # message to the web client.
-            raise
-        except Exception as exc:  # pylint: disable=broad-except
-            _logger.exception('Unexpected error in web_save: %s', exc)
-            # For unexpected errors raise a ValidationError to surface in UI
-            raise ValidationError(self.env._('Server error: %s') % (exc,))
