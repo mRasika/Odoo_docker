@@ -42,8 +42,8 @@ class TestSalonBookingWebSave(TransactionCase):
             booking_vals,
             specification=metadata,
         )
-        self.assertTrue(result.get('result'), 'web_save reported failure')
-        booking = self.env['salon.booking'].browse(result['ids'])
+        self.assertTrue(result, 'web_save returned empty result')
+        booking = self.env['salon.booking'].browse(result)
         self.assertEqual(booking.chair_id, self.chair)
         self.assertEqual(booking.service_ids.ids, [self.service.id])
         self.assertEqual(booking.name, booking_vals['name'])

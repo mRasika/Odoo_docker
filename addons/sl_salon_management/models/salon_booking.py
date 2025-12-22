@@ -456,7 +456,7 @@ class SalonBooking(models.Model):
                             raise
                 # all validated: create records
                 recs = self.create(incoming)
-                return {'result': True, 'ids': recs.ids}
+                return recs.ids
 
             # single record path
             vals = incoming or {}
@@ -479,7 +479,7 @@ class SalonBooking(models.Model):
                     _logger.warning('Overlap detected in web_save for chair %s at %s: %s', chair_id, time_val, e)
                     raise
             rec = self.create([vals])
-            return {'result': True, 'ids': rec.ids}
+            return rec.id
         except ValidationError:
             # Let Odoo handle ValidationError -> RPC returns a proper error
             # message to the web client.
