@@ -39,8 +39,8 @@ class SalonChairUser(models.Model):
         'salon.chair', string="Chair", required=True,
         ondelete='cascade', index=True, copy=False, help="Select salon chairs")
 
-    @api.model
-    def create(self, val):
+    @api.model_create_multi
+    def create(self, vals_list):
         """Update records on adding new chair user"""
         all_active_users = []
         for chair in self.env['salon.chair'].search([]):
@@ -50,5 +50,6 @@ class SalonChairUser(models.Model):
         for user in self.env['res.users'].search(
                 [('id', 'not in', all_active_users)]):
             user.write({'user_salon_active': False})
-        val['read_only_checker'] = True
-        return super().create(val)
+        for val in vals_list:
+            val['read_only_checker'] = True
+        return super().create(vals_list)

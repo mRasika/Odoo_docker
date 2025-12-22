@@ -171,6 +171,7 @@ class SalonBooking(models.Model):
         """Validate overlap using provided values (time, chair, service ids)."""
         if not time_val or not chair_id:
             return
+        raw_chair = chair_id
         chair_id = self._normalize_record_id(chair_id)
         if not chair_id:
             return
@@ -206,7 +207,13 @@ class SalonBooking(models.Model):
                 ('end_time', '>', time_val),
                 ('end_time', '=', False),
             ]
-        overlap = self.env['salon.order'].search(overlap_domain, limit=1)
+        try:
+            overlap = self.env['salon.order'].search(overlap_domain, limit=1)
+        except TypeError as exc:
+            _logger.exception(
+                "Invalid overlap domain %s for normalized chair_id=%r raw value=%r",
+                overlap_domain, chair_id, raw_chair)
+            raise
         if overlap:
             raise ValidationError(
                 self.env._("Selected time overlaps with existing order %(name)s") % {
@@ -335,6 +342,52 @@ class SalonBooking(models.Model):
         def _extract_payload(src_args, src_kwargs):
             payload = None
             source = None
+
+            def _is_payload_candidate(entry):
+                if not isinstance(entry, dict):
+                    return False
+                chair_val = entry.get('chair_id') or entry.get('chair')
+                if chair_val is not None:
+                    if isinstance(chair_val, dict):
+                        if 'id' in chair_val or 'res_id' in chair_val:
+                            return True
+                    else:
+                        return True
+                time_val = entry.get('time')
+                if time_val is not None and not isinstance(time_val, dict):
+                    return True
+                service_val = entry.get('service_ids')
+                if service_val is not None:
+                    if isinstance(service_val, dict):
+                        if not service_val.get('fields'):
+                            return True
+                    else:
+                        return True
+                return False
+
+            def _scan_args(sequence, prefix):
+                for idx, entry in enumerate(sequence):
+                    entry_source = f"{prefix}[{idx}]"
+                    if _is_payload_candidate(entry):
+                        return entry, entry_source
+                    if isinstance(entry, (list, tuple)):
+                        nested, nested_source = _scan_args(entry, f"{entry_source}.entry")
+                        if nested is not None:
+                            return nested, nested_source
+                return None, None
+
+            tight_candidate, tight_source = _scan_args(src_args, 'positional')
+            if tight_candidate is not None:
+                return tight_candidate, tight_source
+
+            for key, value in src_kwargs.items():
+                kw_source = f'kwargs[{key}]'
+                if _is_payload_candidate(value):
+                    return value, kw_source
+                if isinstance(value, (list, tuple)):
+                    nested, nested_source = _scan_args(value, kw_source)
+                    if nested is not None:
+                        return nested, nested_source
 
             for key in ('values', 'specification'):
                 if key in src_kwargs:

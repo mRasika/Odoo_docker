@@ -28,6 +28,7 @@
     'maintainer': 'SkyLabs Company',
     'website': "https://www.skylabs.app",
     'depends': ['account', 'base_setup', 'mail', 'website', 'contacts'],
+    'tests': ['tests/test_salon_booking.py'],
     'data': [
         'security/salon_management_groups.xml',
         'security/ir.model.access.csv',

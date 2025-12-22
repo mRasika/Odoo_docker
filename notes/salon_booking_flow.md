@@ -96,6 +96,14 @@
    ```
    - Logged success (`created 63`) after code normalization.
 
+6. **2025-12-22 Fixes & Improvements**:
+   - **Bug Fix**: `web_save` now correctly prioritizes positional arguments for payload extraction, preventing metadata dictionaries from causing `unhashable type: 'dict'` errors.
+   - **Regression Test**: Added `tests/test_salon_booking.py` to verify `web_save` behavior.
+     - Run tests: `docker compose run --rm odoo odoo -d salonmodule --test-enable --stop-after-init -i sl_salon_management`
+   - **Deprecation Fixes**:
+     - `salon.chair.user`: Implemented `create` with `vals_list` support (`@api.model_create_multi`).
+     - `salon.order` views: Replaced deprecated `kanban-box` with `card` template.
+
 ## Notes
 - The website controller can now rely on `sl_salon_management/models/salon_booking.py` to normalize payloads (checks both `specification` and `values`).
 - The backend approval path uses `_approved_order_id` to skip the newly created order during overlap validation.

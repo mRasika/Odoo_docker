@@ -29,7 +29,7 @@
                 <field name="stage_id"/>
                 <field name="currency_id" invisible="1"/>
                 <templates>
-                    <t t-name="kanban-box">
+                    <t t-name="card">
                         <div t-attf-class="#{kanban_color(record.color.raw_value)} oe_kanban_global_click">
                             <div class="o_dropdown_kanban dropdown">
                                 <a role="button"
@@ -189,7 +189,7 @@
                                     <field name="price_subtotal"
                                            widget="monetary"/>
                                     <templates>
-                                        <t t-name="kanban-box">
+                                        <t t-name="card">
                                             <div t-attf-class="oe_kanban_card oe_kanban_global_click">
                                                 <div class="row">
                                                     <div class="col-xs-12">
