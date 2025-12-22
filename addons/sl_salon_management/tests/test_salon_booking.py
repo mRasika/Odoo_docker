@@ -43,7 +43,11 @@ class TestSalonBookingWebSave(TransactionCase):
             specification=metadata,
         )
         self.assertTrue(result, 'web_save returned empty result')
-        booking = self.env['salon.booking'].browse(result)
+        # Standard web_save returns a list of dicts, e.g. [{'id': 123, 'name': '...'}]
+        self.assertIsInstance(result, list)
+        self.assertIsInstance(result[0], dict)
+        booking_id = result[0]['id']
+        booking = self.env['salon.booking'].browse(booking_id)
         self.assertEqual(booking.chair_id, self.chair)
         self.assertEqual(booking.service_ids.ids, [self.service.id])
         self.assertEqual(booking.name, booking_vals['name'])

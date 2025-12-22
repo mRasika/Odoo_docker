@@ -20,7 +20,7 @@
 ################################################################################
 {
     'name': 'SL Beauty Spa Management',
-    'version': '18.0.1.1.1',
+    'version': '18.0.1.1.2',
     "category": "Services",
     'summary': 'Beauty Parlour Management with Online Booking System',
     'author': 'Skylabs',
